@@ -37,6 +37,12 @@ READ_riscve = riscv32-unknown-elf-readelf
 OBJ_riscve = riscv32-unknown-elf-objcopy
 SIZE_riscve = riscv32-unknown-elf-size
 
+GCC_riscv_im = riscv32-unknown-elf-gcc -march=rv32im -mabi=ilp32 -Wall -O0 -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I ./include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) -mno-div -DDEBUG_PORT
+
+GCC_riscv_o0 = riscv32-unknown-elf-gcc -march=rv32i -mabi=ilp32 -Wall -O0 -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I ./include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) -mno-div -DDEBUG_PORT
+
+AS_riscv_im = riscv32-unknown-elf-as -march=rv32im -mabi=ilp32 #-fPIC
+
 all:
 
 serial:
@@ -161,6 +167,32 @@ asm_load_store: crt
 
 asm_shift: crt
 	$(AS_$(ARCH)) -o shift.o app/asm/shift.s
+	@$(MAKE) --no-print-directory link
+
+sum: crt
+	$(GCC_$(ARCH)) -o sum.o app/sum.c
+	@$(MAKE) --no-print-directory link
+
+sum_im: crt
+	$(GCC_$(ARCH)_im) -o sum.o app/sum.c
+	@$(MAKE) --no-print-directory link
+
+mul: crt
+	$(GCC_$(ARCH)_o0) -o mul.o app/mul.c
+	@$(MAKE) --no-print-directory link
+
+mul_im: crt_im
+	$(GCC_$(ARCH)_im) -o mul.o app/mul.c
+	@$(MAKE) --no-print-directory link
+
+
+mul_loop: crt
+	$(GCC_$(ARCH)) -o mul_loop.o app/mul_loop.c
+	@$(MAKE) --no-print-directory link
+
+
+mul_loop_im: crt
+	$(GCC_$(ARCH)_im) -o mul_loop.o app/mul_loop.c
 	@$(MAKE) --no-print-directory link
 
 animal: crt
