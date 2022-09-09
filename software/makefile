@@ -1,4 +1,4 @@
-# architecture: mips or riscv
+# architecture: mips, riscv or riscve
 ARCH=riscv
 
 # board specific parameters
@@ -12,7 +12,8 @@ LDFLAGS_STRIP = --gc-sections
 LD_SCRIPT = hf-risc.ld
 
 CFLAGS_NO_HW_MULDIV = -mnohwmult -mnohwdiv -ffixed-lo -ffixed-hi
-GCC_mips = mips-elf-gcc -Wall -O2 -c -mips2 -mno-branch-likely -mpatfree -mfix-r4000 -mno-check-zero-division -msoft-float -ffreestanding -nostdlib -fomit-frame-pointer -G 0 -I ./include -DCPU_SPEED=${F_CLK} -DBIG_ENDIAN $(CFLAGS_NO_HW_MULDIV) $(CFLAGS_STRIP) -DDEBUG_PORT
+#GCC_mips = mips-elf-gcc -Wall -Os -c -mips2 -mno-branch-likely -mpatfree -mfix-r4000 -mno-check-zero-division -msoft-float -ffreestanding -nostdlib -fomit-frame-pointer -G 0 -I ./include -DCPU_SPEED=${F_CLK} -DBIG_ENDIAN $(CFLAGS_NO_HW_MULDIV) $(CFLAGS_STRIP) #-DDEBUG_PORT
+GCC_mips = mips-elf-gcc -Wall -Os -c -mips1 -ffixed-hi -ffixed-lo -mno-check-zero-division -msoft-float -ffreestanding -nostdlib -fomit-frame-pointer -G 0 -I ./include -DCPU_SPEED=${F_CLK} -DBIG_ENDIAN $(CFLAGS_STRIP) #-DDEBUG_PORT
 AS_mips = mips-elf-as -mips1 -msoft-float
 LD_mips = mips-elf-ld -mips1 $(LDFLAGS_STRIP)
 DUMP_mips = mips-elf-objdump
@@ -20,7 +21,7 @@ READ_mips = mips-elf-readelf
 OBJ_mips = mips-elf-objcopy
 SIZE_mips = mips-elf-size
 
-GCC_riscv = riscv32-unknown-elf-gcc -march=rv32i -mabi=ilp32 -Wall -Os -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I ./include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) -DDEBUG_PORT #-ffixed-s10 -ffixed-s11 -mno-div -mrvc -fPIC -DDEBUG_PORT
+GCC_riscv = riscv32-unknown-elf-gcc -march=rv32i -mabi=ilp32 -Wall -Os -c -mstrict-align -ffreestanding -nostdlib -ffixed-s10 -ffixed-s11 -I ./include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) #-DDEBUG_PORT #-ffixed-s10 -ffixed-s11 -mno-div -mrvc -fPIC -DDEBUG_PORT
 AS_riscv = riscv32-unknown-elf-as -march=rv32i -mabi=ilp32 #-fPIC
 LD_riscv = riscv32-unknown-elf-ld -melf32lriscv $(LDFLAGS_STRIP)
 DUMP_riscv = riscv32-unknown-elf-objdump -Mno-aliases
@@ -28,13 +29,25 @@ READ_riscv = riscv32-unknown-elf-readelf
 OBJ_riscv = riscv32-unknown-elf-objcopy
 SIZE_riscv = riscv32-unknown-elf-size
 
+GCC_riscve = riscv32-unknown-elf-gcc -march=rv32e -mabi=ilp32e -Wall -Os -c -mstrict-align -ffreestanding -nostdlib -ffixed-a5 -I ./include -DCPU_SPEED=${F_CLK} -DLITTLE_ENDIAN $(CFLAGS_STRIP) #-DDEBUG_PORT 
+AS_riscve = riscv32-unknown-elf-as -march=rv32e -mabi=ilp32e #-fPIC
+LD_riscve = riscv32-unknown-elf-ld -melf32lriscv $(LDFLAGS_STRIP)
+DUMP_riscve = riscv32-unknown-elf-objdump -Mno-aliases
+READ_riscve = riscv32-unknown-elf-readelf
+OBJ_riscve = riscv32-unknown-elf-objcopy
+SIZE_riscve = riscv32-unknown-elf-size
+
 all:
 
 serial:
 	stty ${BAUDRATE} raw cs8 -parenb -crtscts clocal cread ignpar ignbrk -ixon -ixoff -ixany -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke -F ${SERIAL_DEV}
 
 load: serial
+	echo "u" > ${SERIAL_DEV}
+	sleep 1
 	cp code.bin ${SERIAL_DEV}
+	sleep 5
+	echo "b" > ${SERIAL_DEV}
 
 debug: serial
 	cat ${SERIAL_DEV}
@@ -108,12 +121,62 @@ eeprom_sim:
 	printf "%08x\n" `stat -L -c %s code.txt` >> eeprom.txt
 	cat code.txt >> eeprom.txt
 
+
+asm_test:
+	$(AS_$(ARCH)) -o riscv.o app/asm/riscv.s
+	@$(MAKE) --no-print-directory link
+	
+asm_crt_test: crt
+	$(AS_$(ARCH)) -o riscv.o app/asm/riscv_crt.s
+	@$(MAKE) --no-print-directory link
+
+asm_nop: crt
+	$(AS_$(ARCH)) -o nop.o app/asm/nop.s
+	@$(MAKE) --no-print-directory link
+
+asm_mv: crt
+	$(AS_$(ARCH)) -o mv.o app/asm/mv.s
+	@$(MAKE) --no-print-directory link
+
+asm_arith: crt
+	$(AS_$(ARCH)) -o arith.o app/asm/arith.s
+	@$(MAKE) --no-print-directory link
+
+asm_logic: crt
+	$(AS_$(ARCH)) -o logic.o app/asm/logic.s
+	@$(MAKE) --no-print-directory link
+
+asm_branch: crt
+	$(AS_$(ARCH)) -o branch.o app/asm/branch.s
+	@$(MAKE) --no-print-directory link
+
+asm_jump: crt
+	$(AS_$(ARCH)) -o jump.o app/asm/jump.s
+	@$(MAKE) --no-print-directory link
+
+asm_load_store: crt
+	$(AS_$(ARCH)) -o load_store.o app/asm/load_store.s
+	@$(MAKE) --no-print-directory link
+
+
+asm_shift: crt
+	$(AS_$(ARCH)) -o shift.o app/asm/shift.s
+	@$(MAKE) --no-print-directory link
+
+animal: crt
+	$(GCC_$(ARCH)) -o animal.o app/animal.c
+	@$(MAKE) --no-print-directory link
+
 ann: crt
 	$(GCC_$(ARCH)) -o ann.o app/ann.c
 	@$(MAKE) --no-print-directory link
 
 ann2: crt
 	$(GCC_$(ARCH)) -o ann2.o app/ann2.c
+	@$(MAKE) --no-print-directory link
+
+ann3: crt
+	$(GCC_$(ARCH)) -o ann3.o app/ann3.c
 	@$(MAKE) --no-print-directory link
 
 base64: crt
@@ -133,6 +196,12 @@ coremark: crt
 core_test: crt
 	$(GCC_$(ARCH)) -o core_test.o app/core_test.c
 	@$(MAKE) --no-print-directory link
+	
+display_test: crt
+	$(GCC_$(ARCH)) -o display_drv.o app/display/display_drv.c
+	$(GCC_$(ARCH)) -o display_test.o app/display/display_test.c
+	@$(MAKE) --no-print-directory link
+
 
 encode: crt
 	$(GCC_$(ARCH)) -o encode.o app/encode.c
@@ -160,6 +229,14 @@ float_fixed: crt
 	$(GCC_$(ARCH)) -o float_fixed.o app/float_fixed.c
 	@$(MAKE) --no-print-directory link
 
+fsm: crt
+	$(GCC_$(ARCH)) -o fsm.o app/fsm.c
+	@$(MAKE) --no-print-directory link
+
+fsm2: crt
+	$(GCC_$(ARCH)) -o fsm2.o app/fsm2.c
+	@$(MAKE) --no-print-directory link
+
 hanoi: crt
 	$(GCC_$(ARCH)) -o hanoi.o app/hanoi.c
 	@$(MAKE) --no-print-directory link
@@ -171,9 +248,23 @@ hello: crt
 interrupt_test: crt
 	$(GCC_$(ARCH)) -o interrupt_test.o app/interrupt_test.c
 	@$(MAKE) --no-print-directory link
+	
+interrupt_test2: crt	
+	$(GCC_$(ARCH)) -o interrupt_test2.o app/interrupt_test2.c
+	@$(MAKE) --no-print-directory link
+
+interrupt_test3: crt	
+	$(GCC_$(ARCH)) -o interrupt_test3.o app/interrupt_test3.c
+	@$(MAKE) --no-print-directory link
+
 
 labyrinth: crt
 	$(GCC_$(ARCH)) -o labyrinth.o app/labyrinth.c
+	@$(MAKE) --no-print-directory link
+	
+list_test: crt
+	$(GCC_$(ARCH)) -o list.o lib/list.c
+	$(GCC_$(ARCH)) -o list_test.o app/list_test.c
 	@$(MAKE) --no-print-directory link
 
 malloc_test: crt
@@ -202,6 +293,22 @@ sort: crt
 
 sudoku: crt
 	$(GCC_$(ARCH)) -o sudoku.o app/sudoku.c
+	@$(MAKE) --no-print-directory link
+
+tasker: crt
+	$(GCC_$(ARCH)) -o tasker.o app/tasker.c
+	@$(MAKE) --no-print-directory link
+
+tasker2: crt
+	$(GCC_$(ARCH)) -o tasker2.o app/tasker2.c
+	@$(MAKE) --no-print-directory link
+
+tasker3: crt
+	$(GCC_$(ARCH)) -o tasker.o app/tasker3.c
+	@$(MAKE) --no-print-directory link
+	
+tasker4: crt
+	$(GCC_$(ARCH)) -o tasker.o app/tasker4.c
 	@$(MAKE) --no-print-directory link
 
 test64: crt
@@ -235,6 +342,10 @@ xtea: crt
 
 xtea2: crt
 	$(GCC_$(ARCH)) -o xtea2.o app/xtea2.c
+	@$(MAKE) --no-print-directory link
+
+xtea3: crt
+	$(GCC_$(ARCH)) -o xtea3.o app/xtea3.c
 	@$(MAKE) --no-print-directory link
 
 xtea_hw: crt
